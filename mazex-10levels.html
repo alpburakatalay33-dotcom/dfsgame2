@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>MazeX — 10 Bölüm</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0d12;
+  --surface: #14141c;
+  --card: #1a1a26;
+  --border: #2a2a3e;
+  --primary: #7c6af7;
+  --primary-glow: rgba(124,106,247,0.3);
+  --success: #34d399;
+  --danger: #f87171;
+  --warn: #fbbf24;
+  --text: #e8e6ff;
+  --muted: #6b6a8a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Space Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 30px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.title-bar {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.title-bar h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  background: linear-gradient(135deg, var(--primary) 0%, #c084fc 50%, var(--success) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 2px;
+}
+.title-bar p { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+.level-selector {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px;
+  flex-wrap: wrap;
+  max-width: 600px;
+  justify-content: center;
+}
+.level-btn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  min-width: 45px;
+}
+.level-btn.active {
+  background: var(--primary);
+  color: white;
+}
+.level-btn .badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  background: var(--success);
+  border-radius: 50%;
+  font-size: 9px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: #000;
+  font-weight: 700;
+}
+.level-btn.completed .badge {
+  display: flex;
+}
+
+.main-layout { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 1100px; }
+
+.maze-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+#maze { 
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+  border: 3px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cell { width: 24px; height: 24px; position: relative; transition: background 0.1s; }
+.wall { background: #1e3a5f; }
+.path { background: var(--surface); }
+.player {
+  background: var(--primary) !important;
+  border-radius: 50%;
+  transform: scale(0.75);
+  box-shadow: 0 0 12px var(--primary-glow);
+  transition: all 0.07s;
+  z-index: 5;
+}
+.user-path { background: rgba(124,106,247,0.15) !important; }
+.dfs-active { background: rgba(251,191,36,0.6) !important; }
+.dfs-backtrack { background: rgba(251,191,36,0.12) !important; }
+.end-cell {
+  background: rgba(52,211,153,0.15) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.controls {
+  display: flex;
+  gap: 8px;
+}
+.btn {
+  border: 1px solid var(--border);
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+}
+.btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+.btn-ghost { background: transparent; color: var(--muted); }
+.btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+
+.side-panel { display: flex; flex-direction: column; gap: 16px; min-width: 300px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+.card h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 14px;
+}
+
+.level-info { display: flex; gap: 10px; }
+.level-badge {
+  flex: 1;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.level-badge .lb-val { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: var(--primary); }
+.level-badge .lb-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+#liveTimer {
+  font-family: 'Syne', sans-serif;
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--text);
+  text-align: center;
+  padding: 16px 0;
+  letter-spacing: -1px;
+}
+
+#statsBox {
+  background: rgba(52,211,153,0.08);
+  border: 1px solid rgba(52,211,153,0.25);
+  border-radius: 10px;
+  padding: 14px;
+  display: none;
+}
+#statsBox .stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+#statsBox .stat-row:last-child { border: none; }
+#statsBox .stat-row .sk { font-size: 12px; color: var(--muted); }
+#statsBox .stat-row .sv { font-size: 13px; font-weight: 700; color: var(--success); }
+
+.ranking-table { width: 100%; border-collapse: collapse; }
+.ranking-table th { text-align: left; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding-bottom: 10px; }
+.ranking-table td { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--text); }
+.ranking-table tr:last-child td { border: none; }
+.rank-num { color: var(--muted); }
+.rank-1 .rank-num { color: var(--warn); font-weight: 700; }
+.del-x { color: var(--danger); cursor: pointer; margin-left: 6px; opacity: 0.5; font-size: 11px; }
+.del-x:hover { opacity: 1; }
+.lv-tag {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  margin-left: 4px;
+  background: rgba(124,106,247,0.2);
+  color: #c084fc;
+}
+
+.admin-panel {
+  margin-top: 30px;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+.admin-panel:hover { opacity: 1; }
+.admin-panel p { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.admin-panel input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  width: 140px;
+  outline: none;
+}
+.btn-danger { background: rgba(248,113,113,0.15); color: var(--danger); border-color: var(--danger); }
+
+.progress-wrap { margin-top: 8px; }
+.progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--primary); transition: width 0.3s; border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="title-bar">
+  <h1>MazeX</h1>
+  <p>Ok tuşlarıyla ilerle · 10 seviye, sonsuz zorluk</p>
+</div>
+
+<div class="level-selector">
+  <button class="level-btn active" id="lbtn-1" onclick="switchLevel(1)">1<span class="badge">✓</span></button>
+  <button class="level-btn" id="lbtn-2" onclick="switchLevel(2)">2<span class="badge">✓</span></button>
+  <button class="level-btn" id="lbtn-3" onclick="switchLevel(3)">3<span class="badge">✓</span></button>
+  <button class="level-btn" id="lbtn-4" onclick="switchLevel(4)">4<span class="badge">✓</span></button>
+  <button class="level-btn" id="lbtn-5" onclick="switchLevel(5)">5<span class="badge">✓</span></button>
+  <button class="level-btn" id="lbtn-6" onclick="switchLevel(6)">6<span class="badge">✓</span></button>
+  <button class="level-btn" id="lbtn-7" onclick="switchLevel(7)">7<span class="badge">✓</span></button>
+  <button class="level-btn" id="lbtn-8" onclick="switchLevel(8)">8<span class="badge">✓</span></button>
+  <button class="level-btn" id="lbtn-9" onclick="switchLevel(9)">9<span class="badge">✓</span></button>
+  <button class="level-btn" id="lbtn-10" onclick="switchLevel(10)">10<span class="badge">✓</span></button>
+</div>
+
+<div class="main-layout">
+  <div class="maze-wrap">
+    <div id="maze"></div>
+    <div class="controls">
+      <button class="btn btn-ghost" onclick="startDFS()">⟳ DFS Simülasyonu</button>
+      <button class="btn btn-primary" onclick="resetGame()">Yeniden Başlat</button>
+    </div>
+  </div>
+
+  <div class="side-panel">
+    <div class="card">
+      <h3>Mevcut Bölüm</h3>
+      <div class="level-info">
+        <div class="level-badge">
+          <div class="lb-val" id="lvlNum">1</div>
+          <div class="lb-label">BÖLÜM</div>
+        </div>
+        <div class="level-badge">
+          <div class="lb-val" id="lvlSize">9×9</div>
+          <div class="lb-label">HARİTA</div>
+        </div>
+        <div class="level-badge">
+          <div class="lb-val" id="lvlDiff" style="font-size:14px; padding-top:4px;">Kolay</div>
+          <div class="lb-label">ZORLUK</div>
+        </div>
+      </div>
+      <div class="progress-wrap" style="margin-top:14px;">
+        <div class="progress-label"><span>İlerleme</span><span id="progText">0 / 10</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="progFill" style="width:0%"></div></div>
+      </div>
+    </div>
+
+    <div class="card" style="text-align:center;">
+      <h3>Süre</h3>
+      <div id="liveTimer">0.00s</div>
+    </div>
+
+    <div id="statsBox">
+      <div class="stat-row"><span class="sk">Süre</span><span class="sv" id="sTime"></span></div>
+      <div class="stat-row"><span class="sk">Hamle</span><span class="sv" id="sSteps"></span></div>
+      <div class="stat-row"><span class="sk">TPS</span><span class="sv" id="sTPS"></span></div>
+      <div class="stat-row"><span class="sk">Verimlilik</span><span class="sv" id="sEff"></span></div>
+    </div>
+
+    <div class="card">
+      <h3>🏆 En İyi 10 Skor</h3>
+      <table class="ranking-table">
+        <thead>
+          <tr><th>#</th><th>Oyuncu</th><th>Süre</th><th>Lvl</th><th>%Eff</th></tr>
+        </thead>
+        <tbody id="rankingBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="admin-panel">
+  <hr style="border-color:var(--border); margin-bottom:12px;">
+  <p>Admin Paneli</p>
+  <input type="password" id="adminKey" placeholder="Şifre">
+  <button class="btn btn-danger" style="padding:8px 14px; font-size:11px;" onclick="massDelete()">Tümünü Sil</button>
+</div>
+
+<script>
+const LEVELS = {
+  1: { name: "Kolay", size: 9, optimalSteps: 16, map: [
+    [1,"S",1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,1],
+    [1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,"E",1]
+  ]},
+  2: { name: "Kolay", size: 11, optimalSteps: 24, map: [
+    [1,"S",1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,1],
+    [1,1,1,0,1,0,1,1,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,0,1,0,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,1,0,1],
+    [1,0,1,1,1,1,1,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,"E",1]
+  ]},
+  3: { name: "Orta", size: 13, optimalSteps: 36, map: [
+    [1,"S",1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,1],
+    [1,0,1,1,1,1,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1,0,1,1,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,"E",1]
+  ]},
+  4: { name: "Orta", size: 15, optimalSteps: 48, map: [
+    [1,"S",1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,1],
+    [1,1,1,0,1,0,1,1,1,1,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,1,1,0,1,0,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+    [1,0,1,0,1,1,1,0,1,0,1,0,1,0,1],
+    [1,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,1,1,1,1,0,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,"E",1]
+  ]},
+  5: { name: "Zor", size: 17, optimalSteps: 64, map: [
+    [1,"S",1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+    [1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1,0,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,1,1,0,1,1,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,"E",1]
+  ]},
+  6: { name: "Zor", size: 19, optimalSteps: 80, map: [
+    [1,"S",1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,1],
+    [1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+    [1,1,1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,"E",1]
+  ]},
+  7: { name: "Çok Zor", size: 21, optimalSteps: 100, map: [
+    [1,"S",1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+    [1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,"E",1]
+  ]},
+  8: { name: "Çok Zor", size: 23, optimalSteps: 120, map: [
+    [1,"S",1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+    [1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+    [1,1,1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,"E",1]
+  ]},
+  9: { name: "İmkansız", size: 25, optimalSteps: 144, map: [
+    [1,"S",1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+    [1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,1,1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,"E",1]
+  ]},
+  10: { name: "Tanrısı Mod", size: 27, optimalSteps: 168, map: [
+    [1,"S",1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+    [1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,1],
+    [1,1,1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0,1],
+    [1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,"E",1]
+  ]}
+};
+
+let currentLevel = 1;
+let player = { x: 1, y: 0 };
+let userPath = [];
+let startTime = null, gameFinished = false;
+let timerInterval = null;
+let completedLevels = new Set();
+
+function getMap() { return LEVELS[currentLevel].map; }
+function getSize() { return LEVELS[currentLevel].size; }
+
+function switchLevel(n) {
+  currentLevel = n;
+  document.querySelectorAll('.level-btn').forEach((b,i) => {
+    b.classList.toggle('active', i+1 === n);
+  });
+  const L = LEVELS[n];
+  document.getElementById('lvlNum').textContent = n;
+  document.getElementById('lvlSize').textContent = `${L.size}×${L.size}`;
+  document.getElementById('lvlDiff').textContent = L.name;
+  resetGame();
+}
+
+function drawMaze() {
+  const mazeEl = document.getElementById("maze");
+  const map = getMap();
+  const sz = getSize();
+  mazeEl.style.gridTemplateColumns = `repeat(${sz}, 24px)`;
+  mazeEl.style.gridTemplateRows = `repeat(${sz}, 24px)`;
+  mazeEl.innerHTML = "";
+  for(let y=0; y<sz; y++) {
+    for(let x=0; x<sz; x++) {
+      let div = document.createElement("div");
+      let cell = map[y][x];
+      if(cell === 1) {
+        div.className = "cell wall";
+      } else if(cell === "E") {
+        div.className = "cell end-cell";
+        div.innerText = "🏁";
+      } else {
+        div.className = "cell path";
+      }
+      div.id = `c-${x}-${y}`;
+      if(x === player.x && y === player.y) div.classList.add("player");
+      mazeEl.appendChild(div);
+    }
+  }
+}
+
+window.addEventListener("keydown", e => {
+  if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.key)) e.preventDefault();
+  if(gameFinished || !e.key.startsWith("Arrow")) return;
+
+  if(!startTime) {
+    startTime = Date.now();
+    timerInterval = setInterval(updateTimer, 50);
+  }
+
+  const map = getMap();
+  const sz = getSize();
+  let { x, y } = player;
+  if(e.key === "ArrowUp") y--;
+  else if(e.key === "ArrowDown") y++;
+  else if(e.key === "ArrowLeft") x--;
+  else if(e.key === "ArrowRight") x++;
+
+  if(y>=0 && y<sz && x>=0 && x<sz && map[y][x] !== 1) {
+    player = { x, y };
+    userPath.push({ x, y });
+    drawMaze();
+    if(map[y][x] === "E") finishGame();
+  }
+});
+
+function updateTimer() {
+  if(!startTime) return;
+  const t = ((Date.now() - startTime) / 1000).toFixed(2);
+  document.getElementById("liveTimer").textContent = t + "s";
+}
+
+function finishGame() {
+  gameFinished = true;
+  clearInterval(timerInterval);
+  const time = (Date.now() - startTime) / 1000;
+  const steps = userPath.length;
+  const tps = (steps / time).toFixed(2);
+  const efficiency = ((LEVELS[currentLevel].optimalSteps / steps) * 100).toFixed(1);
+
+  completedLevels.add(currentLevel);
+  document.getElementById(`lbtn-${currentLevel}`).classList.add('completed');
+  updateProgress();
+
+  document.getElementById("statsBox").style.display = "block";
+  document.getElementById("sTime").textContent = time.toFixed(2) + "s";
+  document.getElementById("sSteps").textContent = steps + " hamle";
+  document.getElementById("sTPS").textContent = tps;
+  document.getElementById("sEff").textContent = "%" + efficiency;
+
+  showFinalPath();
+
+  setTimeout(() => {
+    const name = prompt(`🏁 BİTTİ!\n\nSüre: ${time.toFixed(2)}s\nTPS: ${tps}\nVerimlilik: %${efficiency}\n\nİsminiz:`) || "Anonim";
+    saveScore(name, time, tps, efficiency);
+  }, 600);
+}
+
+function updateProgress() {
+  const done = completedLevels.size;
+  document.getElementById('progText').textContent = `${done} / 10`;
+  document.getElementById('progFill').style.width = ((done/10)*100) + '%';
+}
+
+function saveScore(name, time, tps, eff) {
+  let scores = JSON.parse(localStorage.getItem("mazeV5") || "[]");
+  scores.push({ name, time, tps, eff, level: currentLevel, id: Date.now() });
+  scores.sort((a,b) => a.time - b.time);
+  localStorage.setItem("mazeV5", JSON.stringify(scores.slice(0, 10)));
+  updateTable();
+}
+
+function updateTable() {
+  const scores = JSON.parse(localStorage.getItem("mazeV5") || "[]");
+  document.getElementById("rankingBody").innerHTML = scores.map((s, i) => `
+    <tr class="${i===0?'rank-1':''}">
+      <td class="rank-num">${i+1}</td>
+      <td>${s.name}<span class="lv-tag">L${s.level}</span><span class="del-x" onclick="deleteSingle(${s.id})">×</span></td>
+      <td><strong>${parseFloat(s.time).toFixed(2)}s</strong></td>
+      <td>${s.tps}</td>
+      <td>%${s.eff}</td>
+    </tr>
+  `).join("");
+}
+
+function showFinalPath() {
+  userPath.forEach((p, i) => {
+    setTimeout(() => {
+      const el = document.getElementById(`c-${p.x}-${p.y}`);
+      if(el && !el.classList.contains('end-cell')) el.classList.add("user-path");
+    }, i * 10);
+  });
+}
+
+function startDFS() {
+  resetGame();
+  const map = getMap();
+  const sz = getSize();
+  let visited = new Set(), history = [];
+  function solve(x, y) {
+    if(y<0||y>=sz||x<0||x>=sz||map[y][x]===1||visited.has(`${x},${y}`)) return false;
+    visited.add(`${x},${y}`);
+    history.push({x, y, type: 'in'});
+    if(map[y][x] === "E") return true;
+    for(let [dx, dy] of [[1,0],[0,1],[-1,0],[0,-1]]) if(solve(x+dx, y+dy)) return true;
+    history.push({x, y, type: 'out'});
+    return false;
+  }
+  solve(1, 0);
+  let i = 0;
+  let itv = setInterval(() => {
+    if(i >= history.length) return clearInterval(itv);
+    const {x, y, type} = history[i++];
+    const el = document.getElementById(`c-${x}-${y}`);
+    if(type === 'in') el.classList.add("dfs-active");
+    else { el.classList.remove("dfs-active"); el.classList.add("dfs-backtrack"); }
+  }, 15);
+}
+
+function deleteSingle(id) {
+  if(document.getElementById("adminKey").value !== "1234") return alert("Şifre yanlış!");
+  let scores = JSON.parse(localStorage.getItem("mazeV5") || "[]").filter(s => s.id !== id);
+  localStorage.setItem("mazeV5", JSON.stringify(scores));
+  updateTable();
+}
+
+function massDelete() {
+  if(document.getElementById("adminKey").value !== "1234") return alert("Şifre yanlış!");
+  if(confirm("Tüm veriler silinecek?")) { localStorage.removeItem("mazeV5"); updateTable(); }
+}
+
+function resetGame() {
+  player = {x: 1, y: 0}; userPath = []; startTime = null; gameFinished = false;
+  clearInterval(timerInterval);
+  document.getElementById("liveTimer").textContent = "0.00s";
+  document.getElementById("statsBox").style.display = "none";
+  drawMaze();
+}
+
+updateTable();
+drawMaze();
+</script>
+</body>
+</html>
